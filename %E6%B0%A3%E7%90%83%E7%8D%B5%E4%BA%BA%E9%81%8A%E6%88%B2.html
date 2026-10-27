@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>氣球獵人 Balloon Pop</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;font-family:system-ui,-apple-system,sans-serif;color:#24304d;background:#f5f5ff}
+.app{max-width:760px;margin:auto;overflow:hidden;border-radius:24px;background:#f4f6ff;border:1px solid #e0e5ff;box-shadow:0 12px 35px #6474a51c}
+header{text-align:center;padding:22px 20px 14px;background:linear-gradient(140deg,#dff6ff,#eee5ff)}
+.eyebrow{font-size:11px;letter-spacing:3px;font-weight:900;color:#7774b6}
+h1{margin:7px 0 5px;font-size:30px}
+.subtitle{font-size:13px;color:#686b8d}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px}
+.stat{background:white;border-radius:14px;text-align:center;padding:10px 3px}
+.stat small{display:block;color:#878ba8;font-size:11px;margin-bottom:3px}
+.stat strong{font-size:22px}
+.arena{height:min(62vh,455px);min-height:360px;position:relative;overflow:hidden;margin:0 12px;border-radius:19px;background:linear-gradient(180deg,#d8f4ff 0%,#e8f7ff 63%,#e2f6dc 100%);border:2px solid white;isolation:isolate;touch-action:manipulation}
+.cloud{position:absolute;color:white;font-size:35px;opacity:.8;pointer-events:none}
+.hill{position:absolute;bottom:-43px;width:145%;height:95px;left:-20%;border-radius:50%;background:#b8e9ab;pointer-events:none}
+.hill.h2{left:25%;bottom:-59px;background:#96d9a4}
+.target{position:absolute;top:-75px;border:0;background:none;padding:0;cursor:pointer;line-height:1;z-index:2;filter:drop-shadow(0 5px 2px #4960831b);animation:fall var(--duration,4s) linear forwards;user-select:none;-webkit-tap-highlight-color:transparent}
+.target .emoji{display:block;font-size:43px}
+.target:active .emoji{transform:scale(.78)}
+@keyframes fall{from{transform:translateY(0) rotate(-8deg)}25%{transform:translateY(110px) rotate(8deg)}50%{transform:translateY(220px) rotate(-7deg)}75%{transform:translateY(330px) rotate(7deg)}to{transform:translateY(510px) rotate(-4deg)}}
+.overlay{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:20px;background:#edf8ffb8;backdrop-filter:blur(4px)}
+.panel{width:100%;max-width:300px;background:white;border-radius:22px;padding:24px 18px;text-align:center;box-shadow:0 10px 35px #637ba426}
+.hero{font-size:52px;line-height:1.2}
+.panel h2{font-size:23px;margin:10px 0 7px}
+.panel p{font-size:13px;line-height:1.8;color:#757a98;margin:0 0 16px}
+.action{border:0;border-radius:14px;background:#7168ed;color:white;font-size:15px;font-weight:850;padding:13px 22px;width:100%;cursor:pointer;box-shadow:0 5px 0 #5149c3}
+.action:active{transform:translateY(3px);box-shadow:0 2px 0 #5149c3}
+.feedback{position:absolute;z-index:4;pointer-events:none;font-size:22px;font-weight:950;animation:float-up .65s ease-out forwards}
+@keyframes float-up{from{opacity:1;transform:translateY(0) scale(.8)}to{opacity:0;transform:translateY(-48px) scale(1.2)}}
+footer{text-align:center;padding:13px 15px 18px;font-size:12px;color:#777d9d;line-height:1.9}
+footer b{color:#e35f79}
+@media(min-width:560px){.target .emoji{font-size:48px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="eyebrow">★ MINI ARCADE ★</div><h1>🎈 氣球獵人！</h1><div class="subtitle">BALLOON POP · 眼明手快，避開危險！</div></header>
+<div class="stats">
+<div class="stat"><small>🏆 得分 SCORE</small><strong id="score">0</strong></div>
+<div class="stat"><small>⏱️ 剩餘時間</small><strong id="time">30</strong></div>
+<div class="stat"><small>❤️ 生命 LIFE</small><strong id="life">❤️❤️❤️</strong></div>
+</div>
+<div class="arena" id="arena" aria-label="氣球遊戲區">
+<div class="cloud" style="left:8%;top:12%">☁️</div><div class="cloud" style="right:9%;top:28%;font-size:27px">☁️</div><div class="cloud" style="left:44%;top:58%;font-size:23px">☁️</div>
+<div class="hill"></div><div class="hill h2"></div>
+<div class="overlay" id="overlay"><div class="panel">
+<div class="hero" id="hero">🎈💣🎈</div><h2 id="heading">準備好了嗎？</h2>
+<p id="message">點擊下落的彩色氣球得分！<br>炸彈會越來越多，氣球也會越掉越快！<br><b>30 秒內挑戰最高分數！</b></p>
+<button class="action" id="start">開始遊戲 ▶</button></div></div>
+</div>
+<footer>🎈 氣球 <b>+10 分</b>　 ·　 💣 炸彈 <b>－1 條命</b><br>難度會隨時間提升：生成速度加快、炸彈比例最高約 40%！</footer>
+</div>
+<script>
+(function(){
+const arena=document.getElementById('arena'),overlay=document.getElementById('overlay');
+const scoreEl=document.getElementById('score'),timeEl=document.getElementById('time'),lifeEl=document.getElementById('life');
+const startBtn=document.getElementById('start');
+let score=0,life=3,time=30,running=false,spawnTimer=null,clockTimer=null,elapsed=0;
+const colors=['🎈','🩷','💜','💙','💚','🧡','💛'];
+function update(){scoreEl.textContent=score;timeEl.textContent=time;lifeEl.textContent='❤️'.repeat(life)+'🩶'.repeat(3-life)}
+function clearTargets(){arena.querySelectorAll('.target,.feedback').forEach(n=>n.remove())}
+function endGame(){
+running=false;clearInterval(spawnTimer);clearInterval(clockTimer);clearTargets();overlay.style.display='flex';
+document.getElementById('hero').textContent=life===0?'💥🎮':'🏆🎉';
+document.getElementById('heading').textContent=life===0?'遊戲結束！':'時間到！';
+document.getElementById('message').innerHTML='你的得分是 <b style="color:#7168ed;font-size:23px">'+score+'</b> 分！<br>'+(score>=150?'太厲害了！你是氣球達人！':'再挑戰一次，突破自己的紀錄吧！');
+startBtn.textContent='再玩一次 ↻';
+}
+function popText(x,y,text,color){const el=document.createElement('div');el.className='feedback';el.textContent=text;el.style.left=x+'px';el.style.top=y+'px';el.style.color=color;arena.appendChild(el);setTimeout(()=>el.remove(),700)}
+function spawn(){
+if(!running)return;
+/* 隨時間提高難度：炸彈變多、目標下落更快 */
+const difficulty=Math.min(1,elapsed/25);
+const bomb=Math.random()<(.23+.17*difficulty),el=document.createElement('button');el.type='button';el.className='target';el.setAttribute('aria-label',bomb?'炸彈':'氣球');
+const emoji=document.createElement('span');emoji.className='emoji';emoji.textContent=bomb?'💣':colors[Math.floor(Math.random()*colors.length)];el.appendChild(emoji);
+const width=arena.clientWidth;el.style.left=Math.min(8+Math.random()*Math.max(1,width-66),width-58)+'px';el.style.setProperty('--duration',Math.max(1.25,3.7+Math.random()*1.1-elapsed*.075)+'s');
+el.addEventListener('click',function(e){
+e.stopPropagation();if(!running||!el.isConnected)return;
+const r=el.getBoundingClientRect(),a=arena.getBoundingClientRect();
+if(bomb){life--;popText(r.left-a.left,r.top-a.top,'💥 -1 ❤️','#dc4262')}
+else{score+=10;popText(r.left-a.left,r.top-a.top,'+10 ✨','#6359df')}
+el.remove();update();if(life<=0)endGame();
+});
+el.addEventListener('animationend',()=>el.remove());arena.appendChild(el);
+}
+function start(){
+clearInterval(spawnTimer);clearInterval(clockTimer);clearTargets();score=0;life=3;time=30;elapsed=0;running=true;update();overlay.style.display='none';
+spawn();
+function scheduleSpawn(){if(!running)return;spawnTimer=setTimeout(()=>{spawn();scheduleSpawn()},Math.max(300,650-elapsed*11));}
+scheduleSpawn();
+clockTimer=setInterval(()=>{if(!running)return;time--;elapsed++;update();if(time<=0)endGame()},1000);
+}
+startBtn.addEventListener('click',start);update();
+})();
+</script>
+</body>
+</html>
